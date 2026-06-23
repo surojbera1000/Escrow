@@ -60,17 +60,15 @@ class Settings:
     poll_interval_seconds: int = field(default_factory=lambda: _get_int("PAYMENT_POLL_INTERVAL_SECONDS", 60))
     group_photo_path: str = field(default_factory=lambda: _get("GROUP_PHOTO_PATH", "assets/escrow_group.jpg") or "")
 
-    # Blockchain
+    # Blockchain (only USDT on BSC / BEP20 is active in this build)
     bsc_rpc_url: str = field(default_factory=lambda: _get("BSC_RPC_URL", "https://bsc-dataseed.binance.org") or "")
     usdt_bep20_contract: str = field(
         default_factory=lambda: _get("USDT_BEP20_CONTRACT", "0x55d398326f99059fF775485246999027B3197955") or ""
     )
-    tron_network: str = field(default_factory=lambda: _get("TRON_NETWORK", "mainnet") or "")
-    tron_api_key: str = field(default_factory=lambda: _get("TRON_API_KEY", "") or "")
-    usdt_trc20_contract: str = field(
-        default_factory=lambda: _get("USDT_TRC20_CONTRACT", "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t") or ""
+    # Single fixed escrow receiving address for USDT BEP20 deposits.
+    bep20_deposit_address: str = field(
+        default_factory=lambda: _get("BEP20_DEPOSIT_ADDRESS", "0xf5CDdbB7d687289aDfF413A48C7f1881910e6925") or ""
     )
-    blockcypher_token: str = field(default_factory=lambda: _get("BLOCKCYPHER_TOKEN", "") or "")
 
     def validate(self) -> None:
         """Raise a clear error if mandatory settings are missing."""

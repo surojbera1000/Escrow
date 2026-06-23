@@ -1,9 +1,14 @@
 # Telegram Crypto Escrow Bot
 
 A Python clone of the **PAGAL Escrow Bot** workflow. It facilitates peer-to-peer
-(P2P) crypto trades (**USDT, BTC, LTC**) by creating private escrow groups,
-managing buyer/seller roles, generating per-trade deposit addresses, monitoring
-the blockchain for payment, and handling fund release / refund commands.
+(P2P) crypto trades by creating private escrow groups, managing buyer/seller
+roles, providing a deposit address, monitoring the blockchain for payment, and
+handling fund release / refund commands.
+
+> 💡 **Scope of this build:** Deposits are processed for **USDT on BSC [BEP20]
+> only**, using a single fixed escrow receiving address. The other options
+> (BTC, LTC, USDT-TRC20) still appear in the menus but reply that they are not
+> available yet. This keeps the bot lightweight and dependency-free to deploy.
 
 > ⚠️ **Important / legal note**: This software moves real cryptocurrency value
 > on behalf of third parties. It is provided as a functional reference. Before
@@ -23,8 +28,8 @@ the blockchain for payment, and handling fund release / refund commands.
 | 3 | Pinned welcome + Deal Info Form | `/dd` | ✅ |
 | 4 | Seller / Buyer role declaration cards | `/seller`, `/buyer` | ✅ |
 | 5 | Token + network inline selection, declaration card | `/token` | ✅ |
-| 6 | Transaction info + deposit address generation | `/deposit` | ✅ |
-| 7 | Blockchain payment verification (poll every 60s) | auto + `/balance` | ✅ |
+| 6 | Transaction info + deposit address (fixed BEP20 address) | `/deposit` | ✅ |
+| 7 | USDT BEP20 payment verification (poll every 60s) | auto + `/balance` | ✅ |
 | 8 | Fund release / refund (seller-only) | `/release`, `/refund` | ✅ |
 | 9 | Auto group photo when a trade starts | automatic | ✅ |
 |   | Dispute, save summary, verify checklist | `/dispute`, `/save`, `/verify` | ✅ |
@@ -53,10 +58,10 @@ tells the user to create the group manually and add the bot as admin.
 - [python-telegram-bot](https://docs.python-telegram-bot.org/) v21 (async)
 - [Telethon](https://docs.telethon.dev/) (group creation via user session)
 - MongoDB via [motor](https://motor.readthedocs.io/) (async) / pymongo
-- [web3.py](https://web3py.readthedocs.io/) for BSC / BEP20
-- [tronpy](https://tronpy.readthedocs.io/) for TRON / TRC20
-- `eth-account`, `ecdsa`, `base58` for deposit-address generation (all pure-Python)
-- BlockCypher REST API for BTC / LTC balance checks
+- `httpx` for BSC JSON-RPC `eth_call` balance checks (USDT BEP20)
+
+> All dependencies are pure-Python / prebuilt wheels — no C or Rust toolchain is
+> needed, so the build step won't fail on minimal deploy environments.
 
 ---
 
@@ -83,8 +88,7 @@ escrow_bot/
 │   └── misc.py         # /save, /verify
 └── services/
     ├── group_manager.py # Telethon userbot
-    ├── wallet.py        # address generation per network
-    └── blockchain.py    # balance / payment checks per network
+    └── blockchain.py    # USDT BEP20 balance check (JSON-RPC via httpx)
 scripts/
 └── generate_session.py  # one-time Telethon session string generator
 ```
@@ -113,7 +117,7 @@ Fill in:
 - `BOT_USERNAME` — your bot's username (without `@`)
 - `API_ID`, `API_HASH` — from <https://my.telegram.org>
 - `MONGO_URI` / `MONGO_DB_NAME`
-- RPC endpoints + contract addresses (sane mainnet defaults are provided)
+- `BEP20_DEPOSIT_ADDRESS` — your USDT BEP20 receiving address (a default is provided)
 
 ### 3. (Optional but recommended) Generate a userbot session
 
@@ -167,12 +171,13 @@ for the full schema).
 
 ## Security notes
 
-- **Private keys** for generated deposit addresses are stored in MongoDB so an
-  operator can sweep/forward funds. **Encrypt them at rest** (KMS, libsodium,
-  etc.) before production — the reference code stores them in plaintext for
-  clarity only.
+- This build uses **one fixed deposit address** for all USDT BEP20 trades. To
+  attribute a payment to a specific trade, the bot records the address balance
+  when `/deposit` runs (a *baseline*) and reports the **increase** since then as
+  that trade's incoming amount. Run one trade at a time for unambiguous matching,
+  or move to per-trade generated addresses for high volume.
 - `/release` and `/refund` are **logical** status changes. Wiring the actual
-  on-chain payout (signing a transfer from the escrow address to the
+  on-chain payout (signing a transfer from the escrow wallet to the
   buyer/seller wallet) is left as a deliberate, security-sensitive next step.
 - Always run the bot over a trusted network and keep the userbot session secret
   (`*.session` and `.env` are git-ignored).
@@ -181,9 +186,8 @@ for the full schema).
 
 ## Notes on payment matching
 
-`poll_payment_job` marks a trade as `paid` when the address balance reaches the
-expected amount. Set `deposit.amount_expected` (e.g. derived from the Deal Info
-quantity × rate) to require an exact match; if it's unset, any non-zero balance
-is treated as paid. A USD price feed for BTC/LTC can be plugged into
-`_usd_estimate` in `handlers/deposit.py`.
+`poll_payment_job` marks a trade as `paid` when the detected increase on the
+deposit address reaches the expected amount. Set `deposit.amount_expected`
+(e.g. derived from the Deal Info quantity × rate) to require an exact match; if
+it's unset, any non-zero increase is treated as paid.
 ```

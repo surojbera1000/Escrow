@@ -1,114 +1,61 @@
-"""Blockchain balance / payment checking for each supported network.
+"""Blockchain balance checking.
 
-The bot polls the deposit address and reports how much has arrived so far.
+This build only supports **USDT on BSC (BEP20)**. The balance is read with a
+plain JSON-RPC ``eth_call`` to the token contract's ``balanceOf`` method over
+``httpx`` - no heavy SDK (web3 / tronpy) and therefore no native build step at
+deploy time.
 
-- BEP20 (BSC)  : web3.py reads the BEP20 USDT contract balance, or native BNB.
-- TRC20 (TRON) : tronpy reads the TRC20 USDT contract balance, or native TRX.
-- BTC / LTC    : a public block-explorer REST API (BlockCypher) reports balance.
-
-All functions return the **total amount currently held by the address** in human
-units (float). The handler compares this against the expected trade amount.
+Other networks (TRON / Bitcoin / Litecoin) are intentionally unsupported here:
+``get_received_amount`` returns ``None`` for them so the rest of the bot can
+show them in menus while making clear they don't process deposits yet.
 """
 
 from __future__ import annotations
 
-import asyncio
 from typing import Optional
 
-import aiohttp
+import httpx
 
 from ..config import settings
 from ..models import Network, Token
 
-# Standard minimal ABI fragments for an ERC20/BEP20 token
-_ERC20_ABI = [
-    {
-        "constant": True,
-        "inputs": [{"name": "_owner", "type": "address"}],
-        "name": "balanceOf",
-        "outputs": [{"name": "balance", "type": "uint256"}],
-        "type": "function",
-    },
-    {
-        "constant": True,
-        "inputs": [],
-        "name": "decimals",
-        "outputs": [{"name": "", "type": "uint8"}],
-        "type": "function",
-    },
-]
+# keccak256("balanceOf(address)")[:4]
+_BALANCE_OF_SELECTOR = "0x70a08231"
+# USDT on BSC uses 18 decimals
+_USDT_BEP20_DECIMALS = 18
 
 
-# --------------------------------------------------------------------------- BEP20
-def _check_bep20_sync(address: str, token: Token) -> float:
-    from web3 import Web3
+async def _bep20_usdt_balance(address: str) -> float:
+    """Read the USDT BEP20 balance of ``address`` via JSON-RPC eth_call."""
+    addr_hex = address.lower().removeprefix("0x").rjust(64, "0")
+    data = _BALANCE_OF_SELECTOR + addr_hex
 
-    w3 = Web3(Web3.HTTPProvider(settings.bsc_rpc_url))
-    checksum = Web3.to_checksum_address(address)
+    payload = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "eth_call",
+        "params": [{"to": settings.usdt_bep20_contract, "data": data}, "latest"],
+    }
 
-    if token == Token.USDT:
-        contract = w3.eth.contract(
-            address=Web3.to_checksum_address(settings.usdt_bep20_contract),
-            abi=_ERC20_ABI,
-        )
-        decimals = contract.functions.decimals().call()
-        raw = contract.functions.balanceOf(checksum).call()
-        return raw / (10 ** decimals)
+    async with httpx.AsyncClient(timeout=30) as client:
+        resp = await client.post(settings.bsc_rpc_url, json=payload)
+        resp.raise_for_status()
+        body = resp.json()
 
-    # Native BNB balance fallback
-    raw = w3.eth.get_balance(checksum)
-    return raw / (10 ** 18)
+    if "error" in body:
+        raise RuntimeError(f"RPC error: {body['error']}")
 
-
-# --------------------------------------------------------------------------- TRC20
-def _check_trc20_sync(address: str, token: Token) -> float:
-    from tronpy import Tron
-    from tronpy.providers import HTTPProvider
-
-    if settings.tron_api_key:
-        provider = HTTPProvider(api_key=settings.tron_api_key)
-        client = Tron(provider=provider)
-    else:
-        client = Tron(network=settings.tron_network)
-
-    if token == Token.USDT:
-        contract = client.get_contract(settings.usdt_trc20_contract)
-        decimals = contract.functions.decimals()
-        raw = contract.functions.balanceOf(address)
-        return raw / (10 ** decimals)
-
-    # Native TRX balance fallback
-    return float(client.get_account_balance(address))
+    result = body.get("result", "0x0")
+    raw = int(result, 16) if result not in (None, "0x", "") else 0
+    return raw / (10 ** _USDT_BEP20_DECIMALS)
 
 
-# ------------------------------------------------------------------ BTC / LTC
-async def _check_blockcypher(address: str, coin: str) -> float:
-    """coin is 'btc' or 'ltc'. Returns confirmed+unconfirmed balance in coin units."""
-    url = f"https://api.blockcypher.com/v1/{coin}/main/addrs/{address}/balance"
-    params = {}
-    if settings.blockcypher_token:
-        params["token"] = settings.blockcypher_token
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url, params=params, timeout=aiohttp.ClientTimeout(total=30)) as resp:
-            resp.raise_for_status()
-            data = await resp.json()
-    # BlockCypher returns satoshis (1e8 base units) for both BTC and LTC
-    total = data.get("final_balance", data.get("balance", 0))
-    return total / (10 ** 8)
-
-
-# ------------------------------------------------------------------- dispatch
-async def get_received_amount(address: str, token: Token, network: Network) -> float:
-    """Return the total amount currently held by ``address`` in human units."""
-    if network == Network.BEP20:
-        return await asyncio.to_thread(_check_bep20_sync, address, token)
-    if network == Network.TRC20:
-        return await asyncio.to_thread(_check_trc20_sync, address, token)
-    if network == Network.BITCOIN:
-        return await _check_blockcypher(address, "btc")
-    if network == Network.LITECOIN:
-        return await _check_blockcypher(address, "ltc")
-    raise ValueError(f"Unsupported network: {network}")
+async def get_received_amount(address: str, token: Token, network: Network) -> Optional[float]:
+    """Total amount held by ``address`` in human units, or None if unsupported."""
+    if network == Network.BEP20 and token == Token.USDT:
+        return await _bep20_usdt_balance(address)
+    # All other token/network combinations are not active in this build.
+    return None
 
 
 async def safe_get_received_amount(
