@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Secrets & local config
+.env
+*.session
+*.session-journal
+
+# Assets that may contain large/binary content
+assets/*.jpg
+assets/*.png
+!assets/.gitkeep
+
+# OS / editor
+.DS_Store
