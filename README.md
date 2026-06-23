@@ -55,7 +55,7 @@ tells the user to create the group manually and add the bot as admin.
 - MongoDB via [motor](https://motor.readthedocs.io/) (async) / pymongo
 - [web3.py](https://web3py.readthedocs.io/) for BSC / BEP20
 - [tronpy](https://tronpy.readthedocs.io/) for TRON / TRC20
-- `eth-account`, `bitcoinlib` for deposit-address generation
+- `eth-account`, `ecdsa`, `base58` for deposit-address generation (all pure-Python)
 - BlockCypher REST API for BTC / LTC balance checks
 
 ---
