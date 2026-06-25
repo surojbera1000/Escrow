@@ -1,10 +1,6 @@
-# Telegram Escrow Bot dependencies (all pure-Python / prebuilt wheels)
-python-telegram-bot[job-queue]==21.6
-telethon==1.36.0
-pymongo==4.8.0
-motor==3.5.1
-python-dotenv==1.0.1
-
-# HTTP client for BSC JSON-RPC balance checks
-# (httpx is already required by python-telegram-bot; pinned here explicitly)
-httpx==0.27.2
+python-telegram-bot[job-queue]==20.7
+pymongo==4.6.1
+python-dotenv==1.0.0
+web3==6.15.1
+tronpy==0.4.0
+httpx==0.27.0
