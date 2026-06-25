@@ -1,20 +1,17 @@
-# Python
-__pycache__/
-*.py[cod]
-*.egg-info/
-.venv/
-venv/
-env/
-
-# Secrets & local config
+# Environment
 .env
-*.session
-*.session-journal
+venv/
+__pycache__/
+*.pyc
+*.pyo
 
-# Assets that may contain large/binary content
-assets/*.jpg
-assets/*.png
-!assets/.gitkeep
+# IDE
+.vscode/
+.idea/
 
-# OS / editor
+# OS
 .DS_Store
+Thumbs.db
+
+# Logs
+*.log
