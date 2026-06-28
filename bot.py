@@ -25,7 +25,7 @@ from telegram.ext import (
 )
 
 from config import BOT_TOKEN, BOT_NAME, BOT_VERSION
-from handlers.start import start_command, start_button_callback
+from handlers.start import start_command, start_button_callback, instructions_command
 from handlers.escrow import escrow_command, escrow_type_callback, link_command, on_bot_added_to_group
 from handlers.deal import dd_conversation_handler
 from handlers.roles import seller_command, buyer_command
@@ -114,6 +114,7 @@ def main() -> None:
     # Start & Help
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("help", help_command))
+    application.add_handler(CommandHandler("instructions", instructions_command))
     
     # Escrow creation & linking
     application.add_handler(CommandHandler("escrow", escrow_command))
