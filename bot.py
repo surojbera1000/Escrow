@@ -361,12 +361,31 @@ async def escrow_type_selected(update: Update, context: ContextTypes.DEFAULT_TYP
             except Exception:
                 await asyncio.sleep(1)
 
-        # Step 7: Bot sends welcome message (BOLD)
-        await context.bot.send_message(
+        # Step 7: Bot sends welcome message (BOLD) and PINS it
+        welcome_msg = await context.bot.send_message(
             chat_id=chat_id,
             text="<b>📍 Hey there traders! Welcome to our escrow service.</b>\n<b>✅ Please start with /dd command and fill the DealInfo Form</b>",
             parse_mode="HTML"
         )
+
+        # Pin the welcome message
+        try:
+            await context.bot.pin_chat_message(
+                chat_id=chat_id,
+                message_id=welcome_msg.message_id,
+                disable_notification=True
+            )
+        except Exception:
+            pass
+
+        # Delete the "pinned message" service notification
+        await asyncio.sleep(1)
+        try:
+            async for msg in bot_client.get_chat_history(chat_id, limit=5):
+                if msg.service and msg.id != welcome_msg.message_id:
+                    await bot_client.delete_messages(chat_id, msg.id)
+        except Exception:
+            pass
 
         # Show success message to user in DM (bold)
         await query.edit_message_text(
