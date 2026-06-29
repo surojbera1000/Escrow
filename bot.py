@@ -71,6 +71,21 @@ async def escrow(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
 
+async def dd_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """/dd command - shows deal details form."""
+    await update.message.reply_text(
+        "<b>Hello there,</b>\n"
+        "<b>Kindly tell deal details i.e.</b>\n\n"
+        "<b>Quantity -</b>\n"
+        "<b>Rate -</b>\n"
+        "<b>Conditions (if any) -</b>\n\n"
+        "<b>Remember without it disputes wouldn't be resolved.</b> "
+        "Once filled proceed with Specifications of the seller or buyer with "
+        "/seller or /buyer [CRYPTO ADDRESS]",
+        parse_mode="HTML"
+    )
+
+
 async def escrow_type_selected(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle P2P or Product Deal button press - create group and show link."""
     query = update.callback_query
@@ -209,6 +224,7 @@ def main():
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("escrow", escrow))
+    app.add_handler(CommandHandler("dd", dd_command))
     app.add_handler(CallbackQueryHandler(start_button, pattern="^start_menu$"))
     app.add_handler(CallbackQueryHandler(escrow_type_selected, pattern="^escrow_type_"))
 
