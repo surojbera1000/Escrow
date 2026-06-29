@@ -17,6 +17,9 @@ API_ID = int(os.getenv("API_ID", "0"))
 API_HASH = os.getenv("API_HASH", "")
 BOT_USERNAME = os.getenv("BOT_USERNAME", "")
 
+# Template file_id from PAGAL Escrow Bot style image (auto-downloads on first run)
+TEMPLATE_FILE_ID = os.getenv("TEMPLATE_FILE_ID", "AgACAgUAAxkBAAFNwkdqQlazoGrOAwhY04Ymi31W9HW6kwACthBrG-VpGFZFi7z7BxhCNAEAAwIAA3kAAzwE")
+
 # Pyrogram USER client (creates groups on behalf of your account)
 user_client = Client(
     "escrow_user_session",
@@ -779,17 +782,17 @@ async def post_init(application) -> None:
     await bot_client.start()
     print("✅ Bot client started.")
 
-    # Download template if not exists and TEMPLATE_FILE_ID is set
+    # Download template if not exists
     template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "template.png")
-    template_file_id = os.getenv("TEMPLATE_FILE_ID", "")
-    if not os.path.exists(template_path) and template_file_id:
+    if not os.path.exists(template_path) and TEMPLATE_FILE_ID:
         try:
             bot = application.bot
-            file = await bot.get_file(template_file_id)
+            file = await bot.get_file(TEMPLATE_FILE_ID)
             await file.download_to_drive(template_path)
             print(f"✅ Template downloaded from file_id")
         except Exception as e:
             print(f"⚠️ Could not download template: {e}")
+            print("   Bot will generate group photo from scratch instead.")
 
 
 async def post_shutdown(application) -> None:
