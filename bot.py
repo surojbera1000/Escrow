@@ -124,10 +124,37 @@ async def seller_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         )
         return
 
-    # Address provided - register as seller
+    # Address provided
     wallet_address = context.args[0]
     user = update.effective_user
     username = user.username or user.first_name or "Unknown"
+    chat_id = update.effective_chat.id
+
+    # Check if this user already registered as buyer in this chat
+    buyers = context.chat_data.get("buyers", {})
+    if str(user.id) in buyers:
+        await update.message.reply_text(
+            "<b>Sorry! you are not allowed to use this command!</b>",
+            parse_mode="HTML"
+        )
+        return
+
+    # Check if seller is already set by another user
+    sellers = context.chat_data.get("sellers", {})
+    if sellers and str(user.id) not in sellers:
+        # Another user already took seller role
+        for uid in sellers:
+            if uid != str(user.id):
+                await update.message.reply_text(
+                    "<b>Sorry! you are not allowed to use this command!</b>",
+                    parse_mode="HTML"
+                )
+                return
+
+    # Register as seller
+    if "sellers" not in context.chat_data:
+        context.chat_data["sellers"] = {}
+    context.chat_data["sellers"][str(user.id)] = wallet_address
 
     # First message: Role declaration (reply to the user's message)
     await update.message.reply_text(
@@ -157,10 +184,37 @@ async def buyer_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         )
         return
 
-    # Address provided - register as buyer
+    # Address provided
     wallet_address = context.args[0]
     user = update.effective_user
     username = user.username or user.first_name or "Unknown"
+    chat_id = update.effective_chat.id
+
+    # Check if this user already registered as seller in this chat
+    sellers = context.chat_data.get("sellers", {})
+    if str(user.id) in sellers:
+        await update.message.reply_text(
+            "<b>Sorry! you are not allowed to use this command!</b>",
+            parse_mode="HTML"
+        )
+        return
+
+    # Check if buyer is already set by another user
+    buyers = context.chat_data.get("buyers", {})
+    if buyers and str(user.id) not in buyers:
+        # Another user already took buyer role
+        for uid in buyers:
+            if uid != str(user.id):
+                await update.message.reply_text(
+                    "<b>Sorry! you are not allowed to use this command!</b>",
+                    parse_mode="HTML"
+                )
+                return
+
+    # Register as buyer
+    if "buyers" not in context.chat_data:
+        context.chat_data["buyers"] = {}
+    context.chat_data["buyers"][str(user.id)] = wallet_address
 
     # First message: Role declaration (reply to the user's message)
     await update.message.reply_text(
