@@ -267,8 +267,8 @@ async def token_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         ],
     ]
     await update.message.reply_text(
-        "<b>Choose token from the list below</b>",
-        parse_mode="HTML",
+        "*choose token from the list below*",
+        parse_mode="MarkdownV2",
         reply_markup=InlineKeyboardMarkup(keyboard),
     )
 
@@ -393,36 +393,47 @@ async def token_selected(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 InlineKeyboardButton("TRON[TRC20]", callback_data="network_TRON"),
             ],
             [
-                InlineKeyboardButton("Back 🔙", callback_data="network_back"),
+                InlineKeyboardButton("Back ⬅️", callback_data="network_back"),
             ],
         ]
+        text = (
+            "*📌 ESCROW\\-CRYPTO DECLARATION*\n\n"
+            "*✅ CRYPTO*\n"
+            "`USDT`\n\n"
+            "`choose network from the list below for USDT`"
+        )
         await query.edit_message_text(
-            "<b>📍ESCROW-CRYPTO DECLARATION</b>\n\n"
-            "<b>✅ CRYPTO</b>\n"
-            f"<code>{token}</code>\n\n"
-            "<b>Choose network from the list below for USDT</b>",
-            parse_mode="HTML",
+            text,
+            parse_mode="MarkdownV2",
             reply_markup=InlineKeyboardMarkup(keyboard),
         )
-    else:
-        # LTC and BTC - no network selection needed, go directly to declaration
-        # Set default network
-        if token == "LTC":
-            network = "Litecoin"
-        else:
-            network = "Bitcoin"
-        context.chat_data["selected_network"] = network
-
-        await query.edit_message_text(
-            "<b>📍ESCROW-CRYPTO DECLARATION</b>\n\n"
-            "<b>✅ CRYPTO</b>\n"
-            f"<code>{token}</code>\n\n"
-            f"<b>✅ NETWORK</b>\n"
-            f"<code>{network}</code>",
-            parse_mode="HTML",
+    elif token == "LTC":
+        context.chat_data["selected_network"] = "Litecoin"
+        text = (
+            "*📌 ESCROW\\-CRYPTO DECLARATION*\n\n"
+            "*✅ CRYPTO*\n"
+            "`LTC`\n\n"
+            "*✅ NETWORK*\n"
+            "`Litecoin`"
         )
-
-        # Send declaration summary for opponent to confirm
+        await query.edit_message_text(
+            text,
+            parse_mode="MarkdownV2",
+        )
+        await send_declaration_summary(query, context)
+    elif token == "BTC":
+        context.chat_data["selected_network"] = "Bitcoin"
+        text = (
+            "*📌 ESCROW\\-CRYPTO DECLARATION*\n\n"
+            "*✅ CRYPTO*\n"
+            "`BTC`\n\n"
+            "*✅ NETWORK*\n"
+            "`Bitcoin`"
+        )
+        await query.edit_message_text(
+            text,
+            parse_mode="MarkdownV2",
+        )
         await send_declaration_summary(query, context)
 
 
@@ -445,28 +456,31 @@ async def network_selected(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             ],
         ]
         await query.edit_message_text(
-            "<b>Choose token from the list below</b>",
-            parse_mode="HTML",
+            "*choose token from the list below*",
+            parse_mode="MarkdownV2",
             reply_markup=InlineKeyboardMarkup(keyboard),
         )
         return
 
     # Set network name
     if network == "BSC":
-        network_display = "BSC[BEP20]"
+        context.chat_data["selected_network"] = "BSC"
     else:
-        network_display = "TRON[TRC20]"
+        context.chat_data["selected_network"] = "TRON"
 
-    context.chat_data["selected_network"] = network_display
     token = context.chat_data.get("selected_token", "USDT")
+    network_display = context.chat_data["selected_network"]
 
+    text = (
+        "*📌 ESCROW\\-CRYPTO DECLARATION*\n\n"
+        "*✅ CRYPTO*\n"
+        f"`{token}`\n\n"
+        "*✅ NETWORK*\n"
+        f"`{network_display}`"
+    )
     await query.edit_message_text(
-        "<b>📍ESCROW-CRYPTO DECLARATION</b>\n\n"
-        "<b>✅ CRYPTO</b>\n"
-        f"<code>{token}</code>\n\n"
-        f"<b>✅ NETWORK</b>\n"
-        f"<code>{network_display}</code>",
-        parse_mode="HTML",
+        text,
+        parse_mode="MarkdownV2",
     )
 
     # Send declaration summary for opponent to confirm
@@ -518,15 +532,29 @@ async def send_declaration_summary(query, context: ContextTypes.DEFAULT_TYPE) ->
         ]
     ]
 
+    # Escape special characters for MarkdownV2
+    def escape_md(text):
+        special = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!']
+        for char in special:
+            text = text.replace(char, f'\\{char}')
+        return text
+
+    opp_user_escaped = escape_md(opponent_username)
+    opp_id_escaped = escape_md(str(opponent_id))
+    token_escaped = escape_md(token)
+    network_escaped = escape_md(network)
+
+    text = (
+        f"*📌 ESCROW DECLARATION*\n\n"
+        f"*⚡ Buyer @{opp_user_escaped} \\| Userid: \\[{opp_id_escaped}\\]*\n\n"
+        f"*✅ {token_escaped} CRYPTO*\n"
+        f"*✅ {network_escaped} NETWORK*"
+    )
+
     await context.bot.send_message(
         chat_id=chat_id,
-        text=(
-            f"<b>📍ESCROW DECLARATION</b>\n\n"
-            f"<b>⚡️ @{opponent_username} | Userid: {opponent_id}</b>\n\n"
-            f"<b>✅ {token}</b>\n"
-            f"<b>✅ {network}</b>"
-        ),
-        parse_mode="HTML",
+        text=text,
+        parse_mode="MarkdownV2",
         reply_markup=InlineKeyboardMarkup(keyboard),
     )
 
@@ -544,33 +572,40 @@ async def declaration_callback(update: Update, context: ContextTypes.DEFAULT_TYP
 
     await query.answer()
 
+    token = context.chat_data.get("selected_token", "")
+    network = context.chat_data.get("selected_network", "")
+    username = user.username or user.first_name or "Unknown"
+
+    def escape_md(text):
+        special = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!']
+        for char in special:
+            text = text.replace(char, f'\\{char}')
+        return text
+
+    user_escaped = escape_md(username)
+    uid_escaped = escape_md(str(user.id))
+    token_escaped = escape_md(token)
+    network_escaped = escape_md(network)
+
     if query.data == "declaration_accept":
-        token = context.chat_data.get("selected_token", "")
-        network = context.chat_data.get("selected_network", "")
-        username = user.username or user.first_name or "Unknown"
-
-        await query.edit_message_text(
-            f"<b>📍ESCROW DECLARATION</b>\n\n"
-            f"<b>⚡️ @{username} | Userid: {user.id}</b>\n\n"
-            f"<b>✅ {token}</b>\n"
-            f"<b>✅ {network}</b>\n\n"
-            f"<b>✅ ACCEPTED</b>",
-            parse_mode="HTML"
+        text = (
+            f"*📌 ESCROW DECLARATION*\n\n"
+            f"*⚡ Buyer @{user_escaped} \\| Userid: \\[{uid_escaped}\\]*\n\n"
+            f"*✅ {token_escaped} CRYPTO*\n"
+            f"*✅ {network_escaped} NETWORK*\n\n"
+            f"*✅ ACCEPTED*"
         )
-
+        await query.edit_message_text(text, parse_mode="MarkdownV2")
         context.chat_data["declaration_accepted"] = True
 
     elif query.data == "declaration_reject":
-        username = user.username or user.first_name or "Unknown"
-
-        await query.edit_message_text(
-            f"<b>📍ESCROW DECLARATION</b>\n\n"
-            f"<b>⚡️ @{username} | Userid: {user.id}</b>\n\n"
-            f"<b>❌ REJECTED</b>\n\n"
-            f"<b>Use /token to try again.</b>",
-            parse_mode="HTML"
+        text = (
+            f"*📌 ESCROW DECLARATION*\n\n"
+            f"*⚡ Buyer @{user_escaped} \\| Userid: \\[{uid_escaped}\\]*\n\n"
+            f"*❌ REJECTED*\n\n"
+            f"*Use /token to try again\\.*"
         )
-
+        await query.edit_message_text(text, parse_mode="MarkdownV2")
         context.chat_data["declaration_accepted"] = False
 
 
