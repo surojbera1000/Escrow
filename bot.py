@@ -638,23 +638,40 @@ async def send_transaction_info(query, context: ContextTypes.DEFAULT_TYPE) -> No
         parse_mode="HTML",
     )
 
-    # Change group photo with names
+    # Change group photo matching the PAGAL Escrow Bot style
     try:
-        # Generate group photo with seller and buyer names
-        img = Image.new("RGB", (400, 400), color=(30, 30, 30))
+        # Generate group photo: dark bg, green accents, PAGAL branding
+        img = Image.new("RGB", (500, 500), color=(20, 20, 20))
         draw = ImageDraw.Draw(img)
-        try:
-            font_big = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 28)
-            font_small = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 20)
-        except Exception:
-            font_big = ImageFont.load_default()
-            font_small = ImageFont.load_default()
 
-        draw.text((50, 80), "🔐 ESCROW", fill=(255, 255, 255), font=font_big)
-        draw.text((50, 140), f"Seller: @{seller_username}", fill=(0, 255, 100), font=font_small)
-        draw.text((50, 180), f"Buyer: @{buyer_username}", fill=(100, 200, 255), font=font_small)
-        draw.text((50, 240), f"{token} | {network}", fill=(255, 255, 0), font=font_small)
-        draw.text((50, 300), f"TXN: {txn_id}", fill=(200, 200, 200), font=font_small)
+        try:
+            font_pagal = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 30)
+            font_escrow = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 45)
+            font_names = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 26)
+            font_dollar = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 40)
+        except Exception:
+            font_pagal = ImageFont.load_default()
+            font_escrow = ImageFont.load_default()
+            font_names = ImageFont.load_default()
+            font_dollar = ImageFont.load_default()
+
+        # Draw $ signs as background pattern (green, semi-transparent look)
+        for row in range(0, 500, 80):
+            for col in range(0, 500, 80):
+                draw.text((col + 10, row + 10), "$", fill=(0, 80, 0), font=font_dollar)
+
+        # Green rectangle for P.A.G.A.L
+        draw.rectangle([(150, 60), (350, 110)], fill=(34, 139, 34))
+        draw.text((165, 67), "P.A.G.A.L", fill=(255, 255, 255), font=font_pagal)
+
+        # ESCROW BOT text
+        draw.text((115, 130), "ESCROW BOT", fill=(255, 255, 255), font=font_escrow)
+
+        # 💰 BUYER: @username
+        draw.text((50, 260), f"\U0001f4b0 BUYER:  @{buyer_username}", fill=(0, 255, 100), font=font_names)
+
+        # 💰 SELLER: @username
+        draw.text((50, 320), f"\U0001f4b0 SELLER:  @{seller_username}", fill=(0, 255, 100), font=font_names)
 
         bio = BytesIO()
         img.save(bio, format="PNG")
@@ -675,7 +692,7 @@ async def send_transaction_info(query, context: ContextTypes.DEFAULT_TYPE) -> No
         # Check seller's bio using Pyrogram bot client
         seller_info = await bot_client.get_users(int(seller_id))
         if seller_info and seller_info.bio:
-            if f"@{bot_username_check}" in seller_info.bio or f"@{bot_username_check.lower()}" in seller_info.bio.lower():
+            if f"@{bot_username_check}".lower() in seller_info.bio.lower():
                 seller_has_bio = True
     except Exception:
         pass
@@ -684,12 +701,12 @@ async def send_transaction_info(query, context: ContextTypes.DEFAULT_TYPE) -> No
         # Check buyer's bio using Pyrogram bot client
         buyer_info = await bot_client.get_users(int(buyer_id))
         if buyer_info and buyer_info.bio:
-            if f"@{bot_username_check}" in buyer_info.bio or f"@{bot_username_check.lower()}" in buyer_info.bio.lower():
+            if f"@{bot_username_check}".lower() in buyer_info.bio.lower():
                 buyer_has_bio = True
     except Exception:
         pass
 
-    # Send fee message
+    # Send fee message based on bio check
     if seller_has_bio and buyer_has_bio:
         fee_text = (
             f"<b>Your Fee is 0.25% as both buyer and seller are using "
