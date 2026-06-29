@@ -166,11 +166,19 @@ async def seller_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         parse_mode="HTML"
     )
 
-    # Second message: Prompt to set buyer (also reply to the user's message)
-    await update.message.reply_text(
-        "<b>Please set buyer using /buyer [DEPOSIT ADDRESS]</b>",
-        parse_mode="HTML"
-    )
+    # Check if both roles are set - if yes, prompt /token
+    buyers = context.chat_data.get("buyers", {})
+    if buyers:
+        await update.message.reply_text(
+            "<b>Use /token to Choose crypto.</b>",
+            parse_mode="HTML"
+        )
+    else:
+        # Second message: Prompt to set buyer
+        await update.message.reply_text(
+            "<b>Please set buyer using /buyer [DEPOSIT ADDRESS]</b>",
+            parse_mode="HTML"
+        )
 
 
 async def buyer_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -226,10 +234,36 @@ async def buyer_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         parse_mode="HTML"
     )
 
-    # Second message: Prompt to set seller (also reply to the user's message)
+    # Check if both roles are set - if yes, prompt /token
+    sellers = context.chat_data.get("sellers", {})
+    if sellers:
+        await update.message.reply_text(
+            "<b>Use /token to Choose crypto.</b>",
+            parse_mode="HTML"
+        )
+    else:
+        # Second message: Prompt to set seller
+        await update.message.reply_text(
+            "<b>Please set seller using /seller [DEPOSIT ADDRESS]</b>",
+            parse_mode="HTML"
+        )
+
+
+async def token_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """/token command - show token selection buttons."""
+    keyboard = [
+        [
+            InlineKeyboardButton("LTC", callback_data="token_LTC"),
+            InlineKeyboardButton("BTC", callback_data="token_BTC"),
+        ],
+        [
+            InlineKeyboardButton("USDT", callback_data="token_USDT"),
+        ],
+    ]
     await update.message.reply_text(
-        "<b>Please set seller using /seller [DEPOSIT ADDRESS]</b>",
-        parse_mode="HTML"
+        "<b>Choose token from the list below</b>",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(keyboard),
     )
 
 
@@ -337,6 +371,21 @@ async def escrow_type_selected(update: Update, context: ContextTypes.DEFAULT_TYP
         )
 
 
+async def token_selected(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle token button press (LTC, BTC, USDT)."""
+    query = update.callback_query
+    await query.answer()
+
+    token = query.data.replace("token_", "")  # LTC, BTC, USDT
+    context.chat_data["selected_token"] = token
+
+    await query.edit_message_text(
+        f"<b>✅ Token selected: {token}</b>\n\n"
+        f"<b>Next step coming soon...</b>",
+        parse_mode="HTML"
+    )
+
+
 async def post_init(application) -> None:
     """Start Pyrogram clients when bot starts."""
     print("🔐 Starting user session...")
@@ -374,8 +423,10 @@ def main():
     app.add_handler(CommandHandler("dd", dd_command))
     app.add_handler(CommandHandler("seller", seller_command))
     app.add_handler(CommandHandler("buyer", buyer_command))
+    app.add_handler(CommandHandler("token", token_command))
     app.add_handler(CallbackQueryHandler(start_button, pattern="^start_menu$"))
     app.add_handler(CallbackQueryHandler(escrow_type_selected, pattern="^escrow_type_"))
+    app.add_handler(CallbackQueryHandler(token_selected, pattern="^token_"))
 
     print("✅ Bot running! Press Ctrl+C to stop.")
     app.run_polling(drop_pending_updates=True)
