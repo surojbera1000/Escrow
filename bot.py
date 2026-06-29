@@ -87,9 +87,10 @@ async def escrow_type_selected(update: Update, context: ContextTypes.DEFAULT_TYP
     else:
         group_title = "OTC Escrow By PAGAL Bot"
 
-    # Show loading message
+    # Show loading message (bold)
     await query.edit_message_text(
-        "⏳ Creating a safe trading place for you, please wait..."
+        "<b>⏳ Creating a safe trading place for you, please wait...</b>",
+        parse_mode="HTML"
     )
 
     try:
@@ -152,13 +153,14 @@ async def escrow_type_selected(update: Update, context: ContextTypes.DEFAULT_TYP
             parse_mode="HTML"
         )
 
-        # Show success message to user in DM
+        # Show success message to user in DM (bold)
         await query.edit_message_text(
-            f"Escrow Group Created\n\n"
-            f"Creator: ⏤‌‌‌‌{full_name}\n\n"
-            f"Join this escrow group and share the link with the buyer and seller.\n\n"
+            f"<b>Escrow Group Created</b>\n\n"
+            f"<b>Creator: ⏤‌‌‌‌{full_name}</b>\n\n"
+            f"<b>Join this escrow group and share the link with the buyer and seller.</b>\n\n"
             f"{link}\n\n"
-            f"⚠️ Note: This link is for 2 members only—third parties are not allowed to join."
+            f"<b>⚠️ Note: This link is for 2 members only—third parties are not allowed to join.</b>",
+            parse_mode="HTML"
         )
 
     except Exception as e:
