@@ -5,20 +5,27 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 from pyrogram import Client
 from pyrogram.types import ChatPrivileges
+from pyrogram.enums import MessageServiceType
 
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 API_ID = int(os.getenv("API_ID", "0"))
 API_HASH = os.getenv("API_HASH", "")
-BOT_USERNAME = os.getenv("BOT_USERNAME", "")  # e.g. "YourEscrowBot"
+BOT_USERNAME = os.getenv("BOT_USERNAME", "")
 
 # Pyrogram USER client (creates groups on behalf of your account)
-# First run will ask for phone number + OTP code in terminal
-# After that, session is saved and auto-logs in
 user_client = Client(
     "escrow_user_session",
     api_id=API_ID,
     api_hash=API_HASH,
+)
+
+# Pyrogram BOT client (used to delete service messages)
+bot_client = Client(
+    "escrow_bot_session",
+    api_id=API_ID,
+    api_hash=API_HASH,
+    bot_token=BOT_TOKEN,
 )
 
 
@@ -70,7 +77,6 @@ async def escrow_type_selected(update: Update, context: ContextTypes.DEFAULT_TYP
     await query.answer()
 
     user = query.from_user
-    # Get full name
     first = user.first_name or ""
     last = user.last_name or ""
     full_name = f"{first}{last}".strip() or user.username or "User"
@@ -127,13 +133,23 @@ async def escrow_type_selected(update: Update, context: ContextTypes.DEFAULT_TYP
         )
         link = invite.invite_link
 
-        # Step 5: User session leaves the group (so it's not visible)
+        # Step 5: User session leaves the group
         await user_client.leave_chat(chat_id)
+        await asyncio.sleep(1)
 
-        # Step 6: Bot sends welcome message inside the group
+        # Step 6: Bot deletes ALL service messages (join/left history) using Pyrogram bot client
+        try:
+            async for msg in bot_client.get_chat_history(chat_id, limit=50):
+                if msg.service:
+                    await bot_client.delete_messages(chat_id, msg.id)
+        except Exception:
+            pass
+
+        # Step 7: Bot sends welcome message (BOLD)
         await context.bot.send_message(
             chat_id=chat_id,
-            text="📍 Hey there traders! Welcome to our escrow service.\n✅ Please start with /dd command and fill the DealInfo Form"
+            text="<b>📍 Hey there traders! Welcome to our escrow service.</b>\n<b>✅ Please start with /dd command and fill the DealInfo Form</b>",
+            parse_mode="HTML"
         )
 
         # Show success message to user in DM
@@ -156,18 +172,23 @@ async def escrow_type_selected(update: Update, context: ContextTypes.DEFAULT_TYP
 
 
 async def post_init(application) -> None:
-    """Start the Pyrogram user client when bot starts."""
+    """Start Pyrogram clients when bot starts."""
     print("🔐 Starting user session...")
     print("   (First time: enter phone number + OTP in terminal)")
     await user_client.start()
     me = await user_client.get_me()
     print(f"✅ User session logged in as: {me.first_name} (@{me.username})")
 
+    print("🤖 Starting bot client...")
+    await bot_client.start()
+    print("✅ Bot client started.")
+
 
 async def post_shutdown(application) -> None:
-    """Stop the Pyrogram user client when bot stops."""
+    """Stop Pyrogram clients when bot stops."""
+    await bot_client.stop()
     await user_client.stop()
-    print("🔒 User session stopped.")
+    print("🔒 Sessions stopped.")
 
 
 def main():
