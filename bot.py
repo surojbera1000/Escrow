@@ -114,7 +114,7 @@ def generate_usage_image(command: str, example_address: str) -> BytesIO:
 
 
 async def seller_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """/seller command - if no address, show usage with photo."""
+    """/seller command - if no address, show usage with photo. If address, declare role."""
     if not context.args:
         # No address provided - show usage image + text
         img = generate_usage_image("seller", "0x7a9521c4330d83aC2BeADCd17f88c7cE3FfC57d8")
@@ -129,15 +129,25 @@ async def seller_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     user = update.effective_user
     username = user.username or user.first_name or "Unknown"
 
+    # First message: Role declaration (reply to the user's message)
     await update.message.reply_text(
-        f"⚡ SELLER @{username} | Userid: {user.id}\n"
-        f"✅ SELLER WALLET <code>{wallet_address}</code>",
+        "<b>📍ESCROW-ROLE DECLARATION</b>\n\n"
+        f"<b>⚡️ SELLER @{username} | Userid: {user.id}</b>\n\n"
+        "<b>✅ SELLER WALLET</b>\n"
+        f"<code>{wallet_address}</code>\n\n"
+        "<b>Note: If you don't see any address, then your address will used from saved addresses after selecting token and chain for the current escrow.</b>",
+        parse_mode="HTML"
+    )
+
+    # Second message: Prompt to set buyer (also reply to the user's message)
+    await update.message.reply_text(
+        "<b>Please set buyer using /buyer [DEPOSIT ADDRESS]</b>",
         parse_mode="HTML"
     )
 
 
 async def buyer_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """/buyer command - if no address, show usage with photo."""
+    """/buyer command - if no address, show usage with photo. If address, declare role."""
     if not context.args:
         # No address provided - show usage image + text
         img = generate_usage_image("buyer", "0x7a9521c4330d83aC2BeADCd17f88c7cE3FfC57d8")
@@ -152,9 +162,19 @@ async def buyer_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     user = update.effective_user
     username = user.username or user.first_name or "Unknown"
 
+    # First message: Role declaration (reply to the user's message)
     await update.message.reply_text(
-        f"⚡ BUYER @{username} | Userid: {user.id}\n"
-        f"✅ BUYER WALLET <code>{wallet_address}</code>",
+        "<b>📍ESCROW-ROLE DECLARATION</b>\n\n"
+        f"<b>⚡️ BUYER @{username} | Userid: {user.id}</b>\n\n"
+        "<b>✅ BUYER WALLET</b>\n"
+        f"<code>{wallet_address}</code>\n\n"
+        "<b>Note: If you don't see any address, then your address will used from saved addresses after selecting token and chain for the current escrow.</b>",
+        parse_mode="HTML"
+    )
+
+    # Second message: Prompt to set seller (also reply to the user's message)
+    await update.message.reply_text(
+        "<b>Please set seller using /seller [DEPOSIT ADDRESS]</b>",
         parse_mode="HTML"
     )
 
