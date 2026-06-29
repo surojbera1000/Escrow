@@ -155,6 +155,7 @@ async def seller_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if "sellers" not in context.chat_data:
         context.chat_data["sellers"] = {}
     context.chat_data["sellers"][str(user.id)] = wallet_address
+    context.chat_data[f"username_{user.id}"] = username
 
     # First message: Role declaration (reply to the user's message)
     await update.message.reply_text(
@@ -223,6 +224,7 @@ async def buyer_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     if "buyers" not in context.chat_data:
         context.chat_data["buyers"] = {}
     context.chat_data["buyers"][str(user.id)] = wallet_address
+    context.chat_data[f"username_{user.id}"] = username
 
     # First message: Role declaration (reply to the user's message)
     await update.message.reply_text(
@@ -379,10 +381,136 @@ async def token_selected(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     token = query.data.replace("token_", "")  # LTC, BTC, USDT
     context.chat_data["selected_token"] = token
 
+    if token == "USDT":
+        # USDT has network selection
+        keyboard = [
+            [
+                InlineKeyboardButton("BSC[BEP20]", callback_data="network_BSC"),
+                InlineKeyboardButton("TRON[TRC20]", callback_data="network_TRON"),
+            ],
+            [
+                InlineKeyboardButton("Back 🔙", callback_data="network_back"),
+            ],
+        ]
+        await query.edit_message_text(
+            "<b>📍ESCROW-CRYPTO DECLARATION</b>\n\n"
+            "<b>✅ CRYPTO</b>\n"
+            f"<code>{token}</code>\n\n"
+            "<b>Choose network from the list below for USDT</b>",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(keyboard),
+        )
+    else:
+        # LTC and BTC - no network selection needed, go directly to declaration
+        # Set default network
+        if token == "LTC":
+            network = "Litecoin"
+        else:
+            network = "Bitcoin"
+        context.chat_data["selected_network"] = network
+
+        await query.edit_message_text(
+            "<b>📍ESCROW-CRYPTO DECLARATION</b>\n\n"
+            "<b>✅ CRYPTO</b>\n"
+            f"<code>{token}</code>\n\n"
+            f"<b>✅ NETWORK</b>\n"
+            f"<code>{network}</code>",
+            parse_mode="HTML",
+        )
+
+        # Send declaration summary for opponent to confirm
+        await send_declaration_summary(query, context)
+
+
+async def network_selected(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle network button press (BSC, TRON, Back)."""
+    query = update.callback_query
+    await query.answer()
+
+    network = query.data.replace("network_", "")  # BSC, TRON, back
+
+    if network == "back":
+        # Go back to token selection
+        keyboard = [
+            [
+                InlineKeyboardButton("LTC", callback_data="token_LTC"),
+                InlineKeyboardButton("BTC", callback_data="token_BTC"),
+            ],
+            [
+                InlineKeyboardButton("USDT", callback_data="token_USDT"),
+            ],
+        ]
+        await query.edit_message_text(
+            "<b>Choose token from the list below</b>",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(keyboard),
+        )
+        return
+
+    # Set network name
+    if network == "BSC":
+        network_display = "BSC[BEP20]"
+    else:
+        network_display = "TRON[TRC20]"
+
+    context.chat_data["selected_network"] = network_display
+    token = context.chat_data.get("selected_token", "USDT")
+
     await query.edit_message_text(
-        f"<b>✅ Token selected: {token}</b>\n\n"
-        f"<b>Next step coming soon...</b>",
-        parse_mode="HTML"
+        "<b>📍ESCROW-CRYPTO DECLARATION</b>\n\n"
+        "<b>✅ CRYPTO</b>\n"
+        f"<code>{token}</code>\n\n"
+        f"<b>✅ NETWORK</b>\n"
+        f"<code>{network_display}</code>",
+        parse_mode="HTML",
+    )
+
+    # Send declaration summary for opponent to confirm
+    await send_declaration_summary(query, context)
+
+
+async def send_declaration_summary(query, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Send the escrow declaration summary for the opponent to confirm."""
+    chat_id = query.message.chat_id
+    token = context.chat_data.get("selected_token", "")
+    network = context.chat_data.get("selected_network", "")
+
+    # Get buyer info
+    buyers = context.chat_data.get("buyers", {})
+    buyer_username = "Unknown"
+    buyer_id = "Unknown"
+    for uid, wallet in buyers.items():
+        # Get buyer info from context
+        buyer_id = uid
+        buyer_username = context.chat_data.get(f"username_{uid}", "Unknown")
+        break
+
+    # Get seller info
+    sellers = context.chat_data.get("sellers", {})
+    seller_username = "Unknown"
+    seller_id = "Unknown"
+    for uid, wallet in sellers.items():
+        seller_id = uid
+        seller_username = context.chat_data.get(f"username_{uid}", "Unknown")
+        break
+
+    keyboard = [
+        [
+            InlineKeyboardButton("Accept ✅", callback_data="declaration_accept"),
+            InlineKeyboardButton("Reject ❌", callback_data="declaration_reject"),
+        ]
+    ]
+
+    await context.bot.send_message(
+        chat_id=chat_id,
+        text=(
+            "<b>📍ESCROW DECLARATION</b>\n\n"
+            f"<b>⚡️ Buyer @{buyer_username} | Userid: {buyer_id}</b>\n\n"
+            f"<b>✅ {token}</b>\n"
+            f"<b>✅ {network}</b>"
+        ),
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(keyboard),
     )
 
 
@@ -427,6 +555,7 @@ def main():
     app.add_handler(CallbackQueryHandler(start_button, pattern="^start_menu$"))
     app.add_handler(CallbackQueryHandler(escrow_type_selected, pattern="^escrow_type_"))
     app.add_handler(CallbackQueryHandler(token_selected, pattern="^token_"))
+    app.add_handler(CallbackQueryHandler(network_selected, pattern="^network_"))
 
     print("✅ Bot running! Press Ctrl+C to stop.")
     app.run_polling(drop_pending_updates=True)
