@@ -378,16 +378,7 @@ async def escrow_type_selected(update: Update, context: ContextTypes.DEFAULT_TYP
 
         welcome_msg = await context.bot.send_message(
             chat_id=chat_id,
-            text=(
-                "Hello there,\n"
-                "Kindly tell deal details i.e.\n\n"
-                "<code>Quantity -</code>\n"
-                "<code>Rate -</code>\n"
-                "<code>Conditions (if any) -</code>\n\n"
-                "Remember without it disputes wouldn't be resolved. "
-                "Once filled proceed with Specifications of the seller or buyer with "
-                "<code>/seller</code> or <code>/buyer</code> <b>[CRYPTO ADDRESS]</b>"
-            ),
+            text="<b>📍 Hey there traders! Welcome to our escrow service.</b>\n<b>✅ Please start with /dd command and fill the DealInfo Form</b>",
             parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(keyboard),
         )
