@@ -379,14 +379,14 @@ async def escrow_type_selected(update: Update, context: ContextTypes.DEFAULT_TYP
         welcome_msg = await context.bot.send_message(
             chat_id=chat_id,
             text=(
-                "<b>Hello there,</b>\n"
-                "<b>Kindly tell deal details i.e.</b>\n\n"
+                "Hello there,\n"
+                "Kindly tell deal details i.e.\n\n"
                 "<code>Quantity -</code>\n"
                 "<code>Rate -</code>\n"
                 "<code>Conditions (if any) -</code>\n\n"
-                "<b>Remember without it disputes wouldn't be resolved. "
-                "Once filled proceed with Specifications of the seller or buyer with </b>"
-                "<code>/seller</code><b> or </b><code>/buyer</code><b> [CRYPTO ADDRESS]</b>"
+                "Remember without it disputes wouldn't be resolved. "
+                "Once filled proceed with Specifications of the seller or buyer with "
+                "<code>/seller</code> or <code>/buyer</code> <b>[CRYPTO ADDRESS]</b>"
             ),
             parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(keyboard),
