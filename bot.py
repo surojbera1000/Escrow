@@ -488,7 +488,13 @@ async def network_selected(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
 
 async def send_declaration_summary(query, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Send the escrow declaration summary for the OPPONENT to confirm."""
+    """Send the escrow declaration summary for the OPPONENT to confirm.
+    
+    Logic:
+    - If SELLER initiated /token → opponent is BUYER → show "Buyer @username"
+    - If BUYER initiated /token → opponent is SELLER → show "Seller @username"
+    Only the opponent can tap Accept/Reject.
+    """
     chat_id = query.message.chat_id
     token = context.chat_data.get("selected_token", "")
     network = context.chat_data.get("selected_network", "")
@@ -496,34 +502,33 @@ async def send_declaration_summary(query, context: ContextTypes.DEFAULT_TYPE) ->
     # Determine who initiated /token
     initiator_id = context.chat_data.get("token_initiator_id", "")
 
-    # Find the opponent (the one who did NOT initiate /token)
+    # Find the opponent
     buyers = context.chat_data.get("buyers", {})
     sellers = context.chat_data.get("sellers", {})
 
     opponent_username = "Unknown"
     opponent_id = "Unknown"
+    opponent_role = "Buyer"  # default
 
-    # If initiator is seller, opponent is buyer
+    # If initiator is seller → opponent is buyer
     if initiator_id in sellers:
+        opponent_role = "Buyer"
         for uid, wallet in buyers.items():
             opponent_id = uid
             opponent_username = context.chat_data.get(f"username_{uid}", "Unknown")
             break
-    # If initiator is buyer, opponent is seller
+    # If initiator is buyer → opponent is seller
     elif initiator_id in buyers:
+        opponent_role = "Seller"
         for uid, wallet in sellers.items():
             opponent_id = uid
             opponent_username = context.chat_data.get(f"username_{uid}", "Unknown")
             break
-    else:
-        # Fallback: use buyer as opponent
-        for uid, wallet in buyers.items():
-            opponent_id = uid
-            opponent_username = context.chat_data.get(f"username_{uid}", "Unknown")
-            break
 
-    # Store opponent ID for button validation
+    # Store opponent ID and role for button validation
     context.chat_data["declaration_opponent_id"] = opponent_id
+    context.chat_data["declaration_opponent_role"] = opponent_role
+    context.chat_data["declaration_opponent_username"] = opponent_username
 
     keyboard = [
         [
@@ -543,10 +548,11 @@ async def send_declaration_summary(query, context: ContextTypes.DEFAULT_TYPE) ->
     opp_id_escaped = escape_md(str(opponent_id))
     token_escaped = escape_md(token)
     network_escaped = escape_md(network)
+    role_escaped = escape_md(opponent_role)
 
     text = (
         f"*📌 ESCROW DECLARATION*\n\n"
-        f"*⚡ Buyer @{opp_user_escaped} \\| Userid: \\[{opp_id_escaped}\\]*\n\n"
+        f"*⚡ {role_escaped} @{opp_user_escaped} \\| Userid: \\[{opp_id_escaped}\\]*\n\n"
         f"*✅ {token_escaped} CRYPTO*\n"
         f"*✅ {network_escaped} NETWORK*"
     )
@@ -574,6 +580,7 @@ async def declaration_callback(update: Update, context: ContextTypes.DEFAULT_TYP
 
     token = context.chat_data.get("selected_token", "")
     network = context.chat_data.get("selected_network", "")
+    opponent_role = context.chat_data.get("declaration_opponent_role", "Buyer")
     username = user.username or user.first_name or "Unknown"
 
     def escape_md(text):
@@ -586,11 +593,12 @@ async def declaration_callback(update: Update, context: ContextTypes.DEFAULT_TYP
     uid_escaped = escape_md(str(user.id))
     token_escaped = escape_md(token)
     network_escaped = escape_md(network)
+    role_escaped = escape_md(opponent_role)
 
     if query.data == "declaration_accept":
         text = (
             f"*📌 ESCROW DECLARATION*\n\n"
-            f"*⚡ Buyer @{user_escaped} \\| Userid: \\[{uid_escaped}\\]*\n\n"
+            f"*⚡ {role_escaped} @{user_escaped} \\| Userid: \\[{uid_escaped}\\]*\n\n"
             f"*✅ {token_escaped} CRYPTO*\n"
             f"*✅ {network_escaped} NETWORK*\n\n"
             f"*✅ ACCEPTED*"
@@ -601,7 +609,7 @@ async def declaration_callback(update: Update, context: ContextTypes.DEFAULT_TYP
     elif query.data == "declaration_reject":
         text = (
             f"*📌 ESCROW DECLARATION*\n\n"
-            f"*⚡ Buyer @{user_escaped} \\| Userid: \\[{uid_escaped}\\]*\n\n"
+            f"*⚡ {role_escaped} @{user_escaped} \\| Userid: \\[{uid_escaped}\\]*\n\n"
             f"*❌ REJECTED*\n\n"
             f"*Use /token to try again\\.*"
         )
