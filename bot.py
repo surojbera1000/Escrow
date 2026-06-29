@@ -4,11 +4,13 @@ from dotenv import load_dotenv
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 from pyrogram import Client
+from pyrogram.types import ChatPrivileges
 
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 API_ID = int(os.getenv("API_ID", "0"))
 API_HASH = os.getenv("API_HASH", "")
+BOT_USERNAME = os.getenv("BOT_USERNAME", "")  # e.g. "YourEscrowBot"
 
 # Pyrogram USER client (creates groups on behalf of your account)
 # First run will ask for phone number + OTP code in terminal
@@ -85,14 +87,39 @@ async def escrow_type_selected(update: Update, context: ContextTypes.DEFAULT_TYP
     )
 
     try:
-        # Create supergroup using the user session
+        # Step 1: User session creates supergroup
         group = await user_client.create_supergroup(
             title=group_title,
             description="Secure Escrow Trading Space"
         )
         chat_id = group.id
 
-        # Create invite link with member limit of 2
+        # Step 2: Add bot to the group
+        bot_info = await context.bot.get_me()
+        bot_uname = BOT_USERNAME or bot_info.username
+        await user_client.add_chat_members(chat_id, bot_uname)
+        await asyncio.sleep(1)
+
+        # Step 3: Promote bot to admin with full privileges
+        await user_client.promote_chat_member(
+            chat_id,
+            bot_info.id,
+            privileges=ChatPrivileges(
+                can_manage_chat=True,
+                can_post_messages=True,
+                can_edit_messages=True,
+                can_delete_messages=True,
+                can_restrict_members=True,
+                can_promote_members=True,
+                can_change_info=True,
+                can_invite_users=True,
+                can_pin_messages=True,
+                can_manage_video_chats=True,
+            )
+        )
+        await asyncio.sleep(1)
+
+        # Step 4: Create invite link with member limit of 2
         invite = await user_client.create_chat_invite_link(
             chat_id=chat_id,
             member_limit=2,
@@ -100,8 +127,11 @@ async def escrow_type_selected(update: Update, context: ContextTypes.DEFAULT_TYP
         )
         link = invite.invite_link
 
-        # Send welcome message inside the group
-        await user_client.send_message(
+        # Step 5: User session leaves the group (so it's not visible)
+        await user_client.leave_chat(chat_id)
+
+        # Step 6: Bot sends welcome message inside the group
+        await context.bot.send_message(
             chat_id=chat_id,
             text="📍 Hey there traders! Welcome to our escrow service.\n✅ Please start with /dd command and fill the DealInfo Form"
         )
