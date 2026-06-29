@@ -253,6 +253,10 @@ async def buyer_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 async def token_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """/token command - show token selection buttons."""
+    user = update.effective_user
+    # Store who initiated /token
+    context.chat_data["token_initiator_id"] = str(user.id)
+
     keyboard = [
         [
             InlineKeyboardButton("LTC", callback_data="token_LTC"),
@@ -470,29 +474,42 @@ async def network_selected(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
 
 async def send_declaration_summary(query, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Send the escrow declaration summary for the opponent to confirm."""
+    """Send the escrow declaration summary for the OPPONENT to confirm."""
     chat_id = query.message.chat_id
     token = context.chat_data.get("selected_token", "")
     network = context.chat_data.get("selected_network", "")
 
-    # Get buyer info
-    buyers = context.chat_data.get("buyers", {})
-    buyer_username = "Unknown"
-    buyer_id = "Unknown"
-    for uid, wallet in buyers.items():
-        # Get buyer info from context
-        buyer_id = uid
-        buyer_username = context.chat_data.get(f"username_{uid}", "Unknown")
-        break
+    # Determine who initiated /token
+    initiator_id = context.chat_data.get("token_initiator_id", "")
 
-    # Get seller info
+    # Find the opponent (the one who did NOT initiate /token)
+    buyers = context.chat_data.get("buyers", {})
     sellers = context.chat_data.get("sellers", {})
-    seller_username = "Unknown"
-    seller_id = "Unknown"
-    for uid, wallet in sellers.items():
-        seller_id = uid
-        seller_username = context.chat_data.get(f"username_{uid}", "Unknown")
-        break
+
+    opponent_username = "Unknown"
+    opponent_id = "Unknown"
+
+    # If initiator is seller, opponent is buyer
+    if initiator_id in sellers:
+        for uid, wallet in buyers.items():
+            opponent_id = uid
+            opponent_username = context.chat_data.get(f"username_{uid}", "Unknown")
+            break
+    # If initiator is buyer, opponent is seller
+    elif initiator_id in buyers:
+        for uid, wallet in sellers.items():
+            opponent_id = uid
+            opponent_username = context.chat_data.get(f"username_{uid}", "Unknown")
+            break
+    else:
+        # Fallback: use buyer as opponent
+        for uid, wallet in buyers.items():
+            opponent_id = uid
+            opponent_username = context.chat_data.get(f"username_{uid}", "Unknown")
+            break
+
+    # Store opponent ID for button validation
+    context.chat_data["declaration_opponent_id"] = opponent_id
 
     keyboard = [
         [
@@ -504,14 +521,57 @@ async def send_declaration_summary(query, context: ContextTypes.DEFAULT_TYPE) ->
     await context.bot.send_message(
         chat_id=chat_id,
         text=(
-            "<b>📍ESCROW DECLARATION</b>\n\n"
-            f"<b>⚡️ Buyer @{buyer_username} | Userid: {buyer_id}</b>\n\n"
+            f"<b>📍ESCROW DECLARATION</b>\n\n"
+            f"<b>⚡️ @{opponent_username} | Userid: {opponent_id}</b>\n\n"
             f"<b>✅ {token}</b>\n"
             f"<b>✅ {network}</b>"
         ),
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(keyboard),
     )
+
+
+async def declaration_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle Accept/Reject button - only opponent can tap."""
+    query = update.callback_query
+    user = query.from_user
+
+    # Check if this user is the opponent (only they can accept/reject)
+    opponent_id = context.chat_data.get("declaration_opponent_id", "")
+    if str(user.id) != str(opponent_id):
+        await query.answer("❌ Only the opponent can confirm this declaration!", show_alert=True)
+        return
+
+    await query.answer()
+
+    if query.data == "declaration_accept":
+        token = context.chat_data.get("selected_token", "")
+        network = context.chat_data.get("selected_network", "")
+        username = user.username or user.first_name or "Unknown"
+
+        await query.edit_message_text(
+            f"<b>📍ESCROW DECLARATION</b>\n\n"
+            f"<b>⚡️ @{username} | Userid: {user.id}</b>\n\n"
+            f"<b>✅ {token}</b>\n"
+            f"<b>✅ {network}</b>\n\n"
+            f"<b>✅ ACCEPTED</b>",
+            parse_mode="HTML"
+        )
+
+        context.chat_data["declaration_accepted"] = True
+
+    elif query.data == "declaration_reject":
+        username = user.username or user.first_name or "Unknown"
+
+        await query.edit_message_text(
+            f"<b>📍ESCROW DECLARATION</b>\n\n"
+            f"<b>⚡️ @{username} | Userid: {user.id}</b>\n\n"
+            f"<b>❌ REJECTED</b>\n\n"
+            f"<b>Use /token to try again.</b>",
+            parse_mode="HTML"
+        )
+
+        context.chat_data["declaration_accepted"] = False
 
 
 async def post_init(application) -> None:
@@ -556,6 +616,7 @@ def main():
     app.add_handler(CallbackQueryHandler(escrow_type_selected, pattern="^escrow_type_"))
     app.add_handler(CallbackQueryHandler(token_selected, pattern="^token_"))
     app.add_handler(CallbackQueryHandler(network_selected, pattern="^network_"))
+    app.add_handler(CallbackQueryHandler(declaration_callback, pattern="^declaration_"))
 
     print("✅ Bot running! Press Ctrl+C to stop.")
     app.run_polling(drop_pending_updates=True)
