@@ -10,6 +10,7 @@ from telegram.ext import Application, CommandHandler, CallbackQueryHandler, Cont
 from pyrogram import Client
 from pyrogram.types import ChatPrivileges
 from pyrogram.enums import MessageServiceType
+from pyrogram import raw
 from PIL import Image, ImageDraw, ImageFont
 
 load_dotenv()
@@ -344,6 +345,17 @@ async def escrow_type_selected(update: Update, context: ContextTypes.DEFAULT_TYP
         )
         link = invite.invite_link
 
+        # Step 4.5: Set chat history hidden for new members (private)
+        try:
+            await user_client.invoke(
+                raw.functions.messages.TogglePreHistoryHidden(
+                    peer=await user_client.resolve_peer(chat_id),
+                    enabled=True
+                )
+            )
+        except Exception:
+            pass
+
         # Step 5: User session leaves the group
         await user_client.leave_chat(chat_id)
         await asyncio.sleep(3)
@@ -361,11 +373,23 @@ async def escrow_type_selected(update: Update, context: ContextTypes.DEFAULT_TYP
             except Exception:
                 await asyncio.sleep(1)
 
-        # Step 7: Bot sends welcome message (BOLD) and PINS it
+        # Step 7: Bot sends welcome message and PINS it
+        keyboard = [[InlineKeyboardButton("How To Use Bot ?", url="https://t.me/how_to_use_pagalescrowbot")]]
+
         welcome_msg = await context.bot.send_message(
             chat_id=chat_id,
-            text="<b>📍 Hey there traders! Welcome to our escrow service.</b>\n<b>✅ Please start with /dd command and fill the DealInfo Form</b>",
-            parse_mode="HTML"
+            text=(
+                "<b>Hello there,</b>\n"
+                "<b>Kindly tell deal details i.e.</b>\n\n"
+                "<code>Quantity -</code>\n"
+                "<code>Rate -</code>\n"
+                "<code>Conditions (if any) -</code>\n\n"
+                "<b>Remember without it disputes wouldn't be resolved. "
+                "Once filled proceed with Specifications of the seller or buyer with </b>"
+                "<code>/seller</code><b> or </b><code>/buyer</code><b> [CRYPTO ADDRESS]</b>"
+            ),
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(keyboard),
         )
 
         # Pin the welcome message
