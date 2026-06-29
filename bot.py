@@ -379,7 +379,7 @@ async def escrow_type_selected(update: Update, context: ContextTypes.DEFAULT_TYP
         # Step 7: Bot sends welcome message and PINS it
         welcome_msg = await context.bot.send_message(
             chat_id=chat_id,
-            text="<b>📍 Hey there traders! Welcome to our escrow service.</b>\n<b>✅ Please start with /dd command and fill the DealInfo Form</b>",
+            text="<b>📍 Hey there traders! Welcome to our escrow service.\n✅ Please start with /dd command and fill the DealInfo Form</b>",
             parse_mode="HTML",
         )
 
