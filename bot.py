@@ -362,20 +362,29 @@ async def escrow_type_selected(update: Update, context: ContextTypes.DEFAULT_TYP
 
         # Step 5: User session leaves the group
         await user_client.leave_chat(chat_id)
-        await asyncio.sleep(3)
 
-        # Step 6: Bot deletes ALL messages in the group (removes join/left history completely)
-        # Try multiple times to ensure the "left" service message is caught
-        for attempt in range(3):
-            try:
-                msg_ids = []
-                async for msg in bot_client.get_chat_history(chat_id, limit=100):
-                    msg_ids.append(msg.id)
-                if msg_ids:
-                    await bot_client.delete_messages(chat_id, msg_ids)
-                    break
-            except Exception:
-                await asyncio.sleep(1)
+        # Step 6: Bot clears ALL group history within 6 seconds
+        # Quick delete - no long waits
+        await asyncio.sleep(2)
+        try:
+            msg_ids = []
+            async for msg in bot_client.get_chat_history(chat_id, limit=100):
+                msg_ids.append(msg.id)
+            if msg_ids:
+                await bot_client.delete_messages(chat_id, msg_ids)
+        except Exception:
+            pass
+
+        # Second pass after 2 more seconds to catch any remaining messages
+        await asyncio.sleep(2)
+        try:
+            msg_ids = []
+            async for msg in bot_client.get_chat_history(chat_id, limit=100):
+                msg_ids.append(msg.id)
+            if msg_ids:
+                await bot_client.delete_messages(chat_id, msg_ids)
+        except Exception:
+            pass
 
         # Step 7: Bot sends welcome message and PINS it
         welcome_msg = await context.bot.send_message(
