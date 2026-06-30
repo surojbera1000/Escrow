@@ -1182,8 +1182,23 @@ async def post_init(application) -> None:
     print(f"✅ User session logged in as: {me.first_name} (@{me.username})")
 
     print("🤖 Starting bot client...")
-    await bot_client.start()
-    print("✅ Bot client started.")
+    try:
+        await bot_client.start()
+        print("✅ Bot client started.")
+    except Exception as e:
+        print(f"⚠️ Bot client failed to start: {e}")
+        print("   Trying to delete session and restart...")
+        # Delete the revoked session file
+        session_file = "escrow_bot_session.session"
+        if os.path.exists(session_file):
+            os.remove(session_file)
+            print(f"   Deleted {session_file}")
+        try:
+            await bot_client.start()
+            print("✅ Bot client started (after session reset).")
+        except Exception as e2:
+            print(f"❌ Bot client still failed: {e2}")
+            print("   Group history deletion may not work.")
 
     # Download template if not exists
     template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "template.png")
@@ -1200,8 +1215,14 @@ async def post_init(application) -> None:
 
 async def post_shutdown(application) -> None:
     """Stop Pyrogram clients when bot stops."""
-    await bot_client.stop()
-    await user_client.stop()
+    try:
+        await bot_client.stop()
+    except Exception:
+        pass
+    try:
+        await user_client.stop()
+    except Exception:
+        pass
     print("🔒 Sessions stopped.")
 
 
