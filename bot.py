@@ -866,6 +866,138 @@ async def dispute_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             print(f"Failed to notify admin: {e}")
 
 
+async def add_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """/add {amount} - Admin confirms deposit amount."""
+    user = update.effective_user
+
+    # Only admin can use this
+    if user.id != ADMIN_ID:
+        await update.message.reply_text(
+            "<b>⚠️ Only admin can use this command.</b>",
+            parse_mode="HTML"
+        )
+        return
+
+    if not context.args:
+        await update.message.reply_text(
+            "<b>⚠️ Usage: /add {amount}</b>",
+            parse_mode="HTML"
+        )
+        return
+
+    try:
+        amount = float(context.args[0])
+    except ValueError:
+        await update.message.reply_text(
+            "<b>⚠️ Invalid amount. Use: /add 100</b>",
+            parse_mode="HTML"
+        )
+        return
+
+    # Store balance
+    context.chat_data["escrow_balance"] = amount
+    context.chat_data["deposit_confirmed"] = True
+
+    token = context.chat_data.get("selected_token", "USDT")
+    network = context.chat_data.get("selected_network", "BSC")
+
+    await update.message.reply_text(
+        f"<b>Deposit 💵 has been confirmed</b>\n\n"
+        f"🪙 <b>Token:</b> {network}-USD\n"
+        f"💰 <b>Amount:</b> <code>{amount:.5f}</code> [{amount:.2f}$]\n"
+        f"💸 <b>Balance:</b> <code>{amount:.5f}</code> [{amount:.2f}$]\n\n"
+        f"<b>Now you can proceed with the Deal✅</b>\n\n"
+        f"<b>Useful commands:</b>\n"
+        f"🗒 <code>/release</code>= <b>Will Release The Funds To Buyer.</b>\n"
+        f"🗒 <code>/refund</code>= <b>Will Refund The Funds To Seller.</b>",
+        parse_mode="HTML"
+    )
+
+
+async def balance_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """/balance - show current escrow balance."""
+    amount = context.chat_data.get("escrow_balance", 0.0)
+
+    await update.message.reply_text(
+        f"<b>Current Escrow Balance is: </b><code>{amount:.5f}</code><b> usdt [{amount:.2f}$]</b>",
+        parse_mode="HTML"
+    )
+
+
+async def release_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """/release - release funds to buyer."""
+    amount = context.chat_data.get("escrow_balance", 0.0)
+
+    if amount <= 0:
+        await update.message.reply_text(
+            "<b>⚠️ No funds to release.</b>",
+            parse_mode="HTML"
+        )
+        return
+
+    # Get buyer info
+    buyers = context.chat_data.get("buyers", {})
+    buyer_username = "Unknown"
+    buyer_wallet = "Unknown"
+    for uid, wallet in buyers.items():
+        buyer_username = context.chat_data.get(f"username_{uid}", "Unknown")
+        buyer_wallet = wallet
+        break
+
+    token = context.chat_data.get("selected_token", "USDT")
+    network = context.chat_data.get("selected_network", "BSC")
+
+    # Clear balance
+    context.chat_data["escrow_balance"] = 0.0
+
+    await update.message.reply_text(
+        f"<b>✅ Funds Released To Buyer</b>\n\n"
+        f"<b>👤 Buyer:</b> @{buyer_username}\n"
+        f"<b>💰 Amount:</b> <code>{amount:.5f}</code> [{amount:.2f}$]\n"
+        f"<b>💼 Wallet:</b> <code>{buyer_wallet}</code>\n"
+        f"<b>🌐 Network:</b> {network}\n\n"
+        f"<b>⚠️ Payment has been released, there is no revert!</b>",
+        parse_mode="HTML"
+    )
+
+
+async def refund_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """/refund - refund funds to seller."""
+    amount = context.chat_data.get("escrow_balance", 0.0)
+
+    if amount <= 0:
+        await update.message.reply_text(
+            "<b>⚠️ No funds to refund.</b>",
+            parse_mode="HTML"
+        )
+        return
+
+    # Get seller info
+    sellers = context.chat_data.get("sellers", {})
+    seller_username = "Unknown"
+    seller_wallet = "Unknown"
+    for uid, wallet in sellers.items():
+        seller_username = context.chat_data.get(f"username_{uid}", "Unknown")
+        seller_wallet = wallet
+        break
+
+    token = context.chat_data.get("selected_token", "USDT")
+    network = context.chat_data.get("selected_network", "BSC")
+
+    # Clear balance
+    context.chat_data["escrow_balance"] = 0.0
+
+    await update.message.reply_text(
+        f"<b>✅ Funds Refunded To Seller</b>\n\n"
+        f"<b>👤 Seller:</b> @{seller_username}\n"
+        f"<b>💰 Amount:</b> <code>{amount:.5f}</code> [{amount:.2f}$]\n"
+        f"<b>💼 Wallet:</b> <code>{seller_wallet}</code>\n"
+        f"<b>🌐 Network:</b> {network}\n\n"
+        f"<b>⚠️ Payment has been refunded, there is no revert!</b>",
+        parse_mode="HTML"
+    )
+
+
 async def deposit_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """/deposit command - generate deposit address and show transaction info."""
     chat_id = update.effective_chat.id
@@ -1093,6 +1225,10 @@ def main():
     app.add_handler(CommandHandler("token", token_command))
     app.add_handler(CommandHandler("deposit", deposit_command))
     app.add_handler(CommandHandler("dispute", dispute_command))
+    app.add_handler(CommandHandler("add", add_command))
+    app.add_handler(CommandHandler("balance", balance_command))
+    app.add_handler(CommandHandler("release", release_command))
+    app.add_handler(CommandHandler("refund", refund_command))
     app.add_handler(CommandHandler("settemplate", set_template_command))
     app.add_handler(CallbackQueryHandler(start_button, pattern="^start_menu$"))
     app.add_handler(CallbackQueryHandler(escrow_type_selected, pattern="^escrow_type_"))
