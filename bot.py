@@ -360,26 +360,36 @@ async def escrow_type_selected(update: Update, context: ContextTypes.DEFAULT_TYP
         except Exception:
             pass
 
-        # Step 5: User session leaves the group
+        # Step 5: Delete ALL messages BEFORE leaving (user session has creator rights)
+        await asyncio.sleep(1)
+        try:
+            msg_ids = []
+            async for msg in user_client.get_chat_history(chat_id, limit=100):
+                msg_ids.append(msg.id)
+            if msg_ids:
+                await user_client.delete_messages(chat_id, msg_ids)
+        except Exception:
+            pass
+
+        # Step 6: User session leaves the group
         await user_client.leave_chat(chat_id)
 
-        # Step 6: Bot clears ALL group history within 6 seconds
-        # Quick delete - no long waits
+        # Step 7: Wait and delete the "left" message using bot (bot is admin)
         await asyncio.sleep(2)
         try:
             msg_ids = []
-            async for msg in bot_client.get_chat_history(chat_id, limit=100):
+            async for msg in bot_client.get_chat_history(chat_id, limit=10):
                 msg_ids.append(msg.id)
             if msg_ids:
                 await bot_client.delete_messages(chat_id, msg_ids)
         except Exception:
             pass
 
-        # Second pass after 2 more seconds to catch any remaining messages
-        await asyncio.sleep(2)
+        # Extra pass - make sure nothing remains
+        await asyncio.sleep(1)
         try:
             msg_ids = []
-            async for msg in bot_client.get_chat_history(chat_id, limit=100):
+            async for msg in bot_client.get_chat_history(chat_id, limit=10):
                 msg_ids.append(msg.id)
             if msg_ids:
                 await bot_client.delete_messages(chat_id, msg_ids)
