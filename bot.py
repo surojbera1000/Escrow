@@ -834,9 +834,18 @@ async def dispute_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         buyer_username = context.chat_data.get(f"username_{uid}", "Unknown")
         break
 
-    # Notify admin via DM
+    # Notify admin via DM with Join Group button
     if ADMIN_ID:
         try:
+            # Generate invite link for admin to join
+            invite = await context.bot.create_chat_invite_link(
+                chat_id=chat_id,
+                name="Admin Dispute Join"
+            )
+            group_link = invite.invite_link
+
+            keyboard = [[InlineKeyboardButton("Join Group", url=group_link)]]
+
             await context.bot.send_message(
                 chat_id=ADMIN_ID,
                 text=(
@@ -851,6 +860,7 @@ async def dispute_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                     f"<b>Please join the group and resolve the dispute.</b>"
                 ),
                 parse_mode="HTML",
+                reply_markup=InlineKeyboardMarkup(keyboard),
             )
         except Exception as e:
             print(f"Failed to notify admin: {e}")
